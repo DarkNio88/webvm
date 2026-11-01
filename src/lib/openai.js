@@ -14,7 +14,7 @@ var screenshotCtx = null;
 
 export function setApiKey(key)
 {
-	client = new OpenAI({baseURL: "http://127.0.0.1:18924/v1", apiKey: key, dangerouslyAllowBrowser: true});
+	client = new OpenAI({baseURL: "https://ai.s2.darknio.ovh/v1", apiKey: key, dangerouslyAllowBrowser: true});
 	// Reset messages
 	messages = []
 	messageList.set(messages);
