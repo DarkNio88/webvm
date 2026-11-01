@@ -5,7 +5,7 @@
 	import NetworkingTab from './NetworkingTab.svelte';
 	import CpuTab from './CpuTab.svelte';
 	import DiskTab from './DiskTab.svelte';
-	import AnthropicTab from './AnthropicTab.svelte';
+	import AITab from './AITab.svelte';
 	import PostsTab from './PostsTab.svelte';
 	import DiscordTab from './DiscordTab.svelte';
 	import GitHubTab from './GitHubTab.svelte';
@@ -16,7 +16,7 @@
 		{ icon: 'fas fa-wifi', info: 'Networking', activity: null },
 		{ icon: 'fas fa-microchip', info: 'CPU', activity: cpuActivity },
 		{ icon: 'fas fa-compact-disc', info: 'Disk', activity: diskActivity },
-		{ icon: 'fas fa-robot', info: 'ClaudeAI', activity: aiActivity },
+		{ icon: 'fas fa-robot', info: 'AI', activity: aiActivity },
 		null,
 		{ icon: 'fas fa-book-open', info: 'Posts', activity: null },
 		{ icon: 'fab fa-discord', info: 'Discord', activity: null },
@@ -107,8 +107,8 @@
 			<CpuTab/>
 		{:else if activeInfo === 'Disk'}
 			<DiskTab on:reset/>
-		{:else if activeInfo === 'ClaudeAI'}
-			<AnthropicTab handleTool={handleTool} />
+		{:else if activeInfo === 'AI'}
+			<AITab handleTool={handleTool} />
 		{:else if activeInfo === 'Posts'}
 			<PostsTab/>
 		{:else if activeInfo === 'Discord'}

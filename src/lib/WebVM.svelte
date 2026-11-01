@@ -8,7 +8,7 @@
 	import { networkInterface, networkData, startLogin } from '$lib/network.js'
 	import { cpuActivity, diskActivity, cpuPercentage, diskLatency } from '$lib/activities.js'
 	import { introMessage, errorMessage, unexpectedErrorMessage } from '$lib/messages.js'
-	import { displayConfig, handleToolImpl } from '$lib/anthropic.js'
+	import { displayConfig, handleToolImpl } from '$lib/openai.js'
 	import { tryPlausible } from '$lib/plausible.js'
 
 	export let configObj = null;

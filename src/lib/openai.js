@@ -3,7 +3,7 @@ import { browser } from '$app/environment'
 import { aiActivity } from '$lib/activities.js'
 import { tryPlausible } from '$lib/plausible.js';
 
-import Anthropic from '@anthropic-ai/sdk';
+import OpenAI from 'openai';
 
 var client = null;
 var messages = [];
@@ -14,18 +14,18 @@ var screenshotCtx = null;
 
 export function setApiKey(key)
 {
-	client = new Anthropic({apiKey: key, dangerouslyAllowBrowser: true});
+	client = new OpenAI({baseURL: "http://127.0.0.1:18924/v1", apiKey: key, dangerouslyAllowBrowser: true});
 	// Reset messages
 	messages = []
 	messageList.set(messages);
-	localStorage.setItem("anthropic-api-key", key);
+	localStorage.setItem("openai-api-key", key);
 	apiState.set("READY");
-	tryPlausible("ClaudeAI Key");
+	tryPlausible("OpenAI Key");
 }
 
 function clearApiKey()
 {
-	localStorage.removeItem("anthropic-api-key");
+	localStorage.removeItem("openai-api-key");
 	apiState.set("KEY_REQUIRED");
 }
 
@@ -35,24 +35,155 @@ function addMessageInternal(role, content)
 	messageList.set(messages);
 }
 
+// NOTE: tool payloads in message history are stored in normalized internal form:
+//   assistant tool call: { type: "tool_use", id, name, input }
+//   user tool result:    { type: "tool_result", tool_use_id, content, is_error }
+// They are translated to OpenAI wire format in toOpenAIMessages().
+var tools = null;
+
+function getToolsDefinition()
+{
+	var dc = get(displayConfig);
+	if(dc)
+	{
+		return [{
+			type: "function",
+			function: {
+				name: "computer",
+				description: "Control the virtual machine desktop display. Use mouse, keyboard and take screenshots to interact with the GUI.",
+				parameters: {
+					type: "object",
+					properties: {
+						action: {
+							type: "string",
+							enum: ["screenshot", "mouse_move", "left_click", "right_click", "type", "key", "wait"],
+							description: "The action to perform"
+						},
+						coordinate: {
+							type: "array",
+							items: { type: "integer" },
+							description: "X,Y pixel coordinates for mouse actions (required for mouse_move, left_click, right_click)"
+						},
+						text: {
+							type: "string",
+							description: "Text to type (for 'type' action) or key name (for 'key' action, e.g. 'Return', 'Escape', 'ctrl+c')"
+						},
+						duration: {
+							type: "integer",
+							description: "Seconds to wait (required for 'wait' action)"
+						}
+					},
+					required: ["action"]
+				}
+			}
+		}];
+	}
+	return [{
+		type: "function",
+		function: {
+			name: "bash",
+			description: "Run a shell command on the virtualized Linux machine and return its combined output.",
+			parameters: {
+				type: "object",
+				properties: {
+					command: {
+						type: "string",
+						description: "The shell command to execute"
+					}
+				},
+				required: ["command"]
+			}
+		}
+	}];
+}
+
+function toOpenAIMessages()
+{
+	var out = [];
+	for(var i=0;i<messages.length;i++)
+	{
+		var m = messages[i];
+		if(m.role == "user" || m.role == "assistant")
+		{
+			if(typeof m.content == "string")
+			{
+				out.push({role: m.role, content: m.content});
+				continue;
+			}
+			// Array content: split tool calls / plain text
+			var parts = Array.isArray(m.content) ? m.content : [m.content];
+			var text = [];
+			var toolCalls = [];
+			var toolResults = [];
+			for(var j=0;j<parts.length;j++)
+			{
+				var p = parts[j];
+				if(typeof p == "string")
+				{
+					text.push(p);
+				}
+				else if(p.type == "tool_use")
+				{
+					toolCalls.push({id: p.id, type: "function", function: {name: p.name, arguments: JSON.stringify(p.input)}});
+				}
+				else if(p.type == "tool_result")
+				{
+					toolResults.push(p);
+				}
+				else if(p.type == "image")
+				{
+					text.push({type: "image_url", image_url: {url: "data:image/png;base64," + p.source.data}});
+				}
+			}
+			if(m.role == "assistant")
+			{
+				var msg = {role: "assistant", content: text.length ? text.join("\n") : (toolCalls.length ? "" : null)};
+				if(toolCalls.length)
+					msg.tool_calls = toolCalls;
+				out.push(msg);
+			}
+			else
+			{
+				// Tool results must be sent as individual 'tool' messages
+				for(var k=0;k<toolResults.length;k++)
+				{
+					var tr = toolResults[k];
+					var content;
+					if(Array.isArray(tr.content))
+						content = tr.content.map(function(c) {
+							if(c.type == "image")
+								return {type: "image_url", image_url: {url: "data:image/png;base64," + c.source.data}};
+							return {type: "text", text: String(c.text !== undefined ? c.text : c)};
+						});
+					else
+						content = tr.content !== undefined ? String(tr.content) : "";
+					out.push({role: "tool", tool_call_id: tr.tool_use_id, content: content});
+				}
+				// Any remaining plain text from the user
+				if(text.length && !toolResults.length)
+					out.push({role: "user", content: text.join("\n")});
+			}
+		}
+	}
+	return out;
+}
+
 async function sendMessages(handleTool)
 {
 	aiActivity.set(true);
 	try
 	{
-		var dc = get(displayConfig);
-		var tool = dc ? { type: "computer_20250124", name: "computer", display_width_px: dc.width, display_height_px: dc.height, display_number: 1 } : { type: "bash_20250124", name: "bash" }
-		const config = {max_tokens: 2048,
-									messages: messages,
-									system: "You are running on a virtualized machine. Wait some extra time after all operations to compensate for slowdown.",
-									model: 'claude-3-7-sonnet-20250219',
-									tools: [tool],
-									tool_choice: {type: "auto", disable_parallel_tool_use: true},
-									betas: ["computer-use-2025-01-24"]
-								};
-		if(get(enableThinking))
-			config.thinking = { type: "enabled", budget_tokens: 1024 };
-		const response = await client.beta.messages.create(config);
+		const config = {
+			max_completion_tokens: 2048,
+			messages: [
+				{role: "system", content: "You are running on a virtualized machine. Wait some extra time after all operations to compensate for slowdown."},
+				...toOpenAIMessages()
+			],
+			model: 'glm-5.3-flash-free',
+			tools: tools,
+			tool_choice: "auto"
+		};
+		const response = await client.chat.completions.create(config);
 		if(stopFlag)
 		{
 			aiActivity.set(false);
@@ -68,60 +199,60 @@ async function sendMessages(handleTool)
 					delete c[0].content;
 			}
 		}
-		var content = response.content;
-		// Be robust to multiple response
-		for(var i=0;i<content.length;i++)
+		var content = response.choices[0].message;
+		// Assistant text
+		if(content.content)
+			addMessageInternal(response.choices[0].message.role, content.content);
+		// Handle tool calls (sequential, single at a time)
+		var toolCalls = content.tool_calls || [];
+		for(var j=0;j<toolCalls.length;j++)
 		{
-			var c = content[i];
-			if(c.type == "text")
+			var tc = toolCalls[j];
+			var input;
+			try
 			{
-				addMessageInternal(response.role, c.text);
+				input = JSON.parse(tc.function.arguments || "{}");
 			}
-			else if(c.type == "tool_use")
+			catch(e)
 			{
-				addMessageInternal(response.role, [c]);
-				var commandResponse = await handleTool(c.input);
-				var responseObj = {type: "tool_result", tool_use_id: c.id };
-				if(commandResponse != null)
+				input = {};
+			}
+			var toolUse = {type: "tool_use", id: tc.id, name: tc.function.name, input: input};
+			addMessageInternal("assistant", [toolUse]);
+			var commandResponse = await handleTool(input);
+			var responseObj = {type: "tool_result", tool_use_id: tc.id};
+			if(commandResponse != null)
+			{
+				if(commandResponse instanceof Error)
 				{
-					if(commandResponse instanceof Error)
-					{
-						console.warn(`Tool error: ${commandResponse.message}`);
-						responseObj.content = commandResponse.message;
-						responseObj.is_error = true;
-					}
-					else
-					{
-						responseObj.content = commandResponse;
-					}
+					console.warn(`Tool error: ${commandResponse.message}`);
+					responseObj.content = commandResponse.message;
+					responseObj.is_error = true;
 				}
-				addMessageInternal("user", [responseObj]);
-				if(stopFlag)
+				else
 				{
-					// Maintain state consitency by stopping after adding a valid response
-					aiActivity.set(false);
-					return;
+					responseObj.content = commandResponse;
 				}
-				sendMessages(handleTool);
 			}
-			else if(c.type == "thinking")
+			addMessageInternal("user", [responseObj]);
+			if(stopFlag)
 			{
-				addMessageInternal(response.role, [c]);
+				// Maintain state consitency by stopping after adding a valid response
+				aiActivity.set(false);
+				return;
 			}
-			else
-			{
-				console.warn(`Invalid response type: ${c.type}`);
-			}
+			sendMessages(handleTool);
+			return;
 		}
-		if(response.stop_reason == "end_turn")
+		if(!toolCalls.length && response.choices[0].finish_reason == "stop")
 		{
-			tryPlausible("ClaudeAI Success");
+			tryPlausible("OpenAI Success");
 			aiActivity.set(false);
 		}
 	}
 	catch(e)
 	{
-		tryPlausible("ClaudeAI Error");
+		tryPlausible("OpenAI Error");
 		if(e.status == 401)
 		{
 			addMessageInternal('error', 'Invalid API key');
@@ -129,9 +260,8 @@ async function sendMessages(handleTool)
 		}
 		else
 		{
-			addMessageInternal('error', e.error.error.message);
+			addMessageInternal('error', e.message || String(e));
 		}
-			
 	}
 }
 
@@ -139,7 +269,7 @@ export function addMessage(text, handleTool)
 {
 	addMessageInternal('user', text);
 	sendMessages(handleTool);
-	tryPlausible("ClaudeAI Use");
+	tryPlausible("OpenAI Use");
 }
 
 export function clearMessageHistory() {
@@ -163,13 +293,16 @@ export function forceStop() {
 export function getMessageDetails(msg) {
 	const isToolUse = Array.isArray(msg.content) && msg.content[0].type === "tool_use";
 	const isToolResult = Array.isArray(msg.content) && msg.content[0].type === "tool_result";
-	const isThinking = Array.isArray(msg.content) && msg.content[0].type === "thinking";
 	let icon = "";
 	let messageContent = "";
 
 	if (isToolUse) {
 		let tool = msg.content[0].input;
-		if (tool.action === "screenshot") {
+		if(tool.name == "bash" && tool.command) {
+			icon = "fa-terminal";
+			messageContent = `Run: ${tool.command}`;
+		}
+		else if (tool.action === "screenshot") {
 			icon = "fa-desktop";
 			messageContent = "Screenshot";
 		} else if (tool.action === "mouse_move") {
@@ -197,9 +330,6 @@ export function getMessageDetails(msg) {
 			icon = "fa-screwdriver-wrench";
 			messageContent = "Use the system";
 		}
-	} else if (isThinking) {
-		icon = "fa-brain";
-		messageContent = "Thinking...";
 	} else {
 		icon = msg.role === "user" ? "fa-user" : "fa-robot";
 		messageContent = msg.content;
@@ -304,7 +434,7 @@ export async function handleToolImpl(tool, term)
 				}
 				while(1)
 				{
-					// Resize the canvas to a Claude compatible size
+					// Resize the canvas to a compatible size
 					screenshotCtx.drawImage(display, 0, 0, display.width, display.height, 0, 0, dc.width, dc.height);
 					var dataUrl = screenshotCanvas.toDataURL("image/png");
 					if(dataUrl == lastScreenshot)
@@ -492,7 +622,7 @@ export async function handleToolImpl(tool, term)
 
 function initialize()
 {
-	var savedApiKey = localStorage.getItem("anthropic-api-key");
+	var savedApiKey = localStorage.getItem("openai-api-key");
 	if(savedApiKey)
 		setApiKey(savedApiKey);
 }
@@ -501,7 +631,6 @@ export const apiState = writable("KEY_REQUIRED");
 export const messageList = writable(messages);
 export const currentMessage = writable("");
 export const displayConfig = writable(null);
-export const enableThinking = writable(false);
 
 if(browser)
 	initialize();

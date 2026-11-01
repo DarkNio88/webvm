@@ -1,5 +1,5 @@
 <script>
-	import { apiState, setApiKey, addMessage, clearMessageHistory, forceStop, messageList, currentMessage, enableThinking, getMessageDetails } from '$lib/anthropic.js';
+	import { apiState, setApiKey, addMessage, clearMessageHistory, forceStop, messageList, currentMessage, getMessageDetails } from '$lib/openai.js';
 	import { tick } from 'svelte';
 	import { get } from 'svelte/store';
 	import PanelButton from './PanelButton.svelte';
@@ -68,22 +68,17 @@
 		messageListElement.classList.remove("p-1");
 		const link = document.createElement('a');
 		link.href = canvas.toDataURL('image/png');
-		link.download = 'WebVM_Claude.png';
+		link.download = 'WebVM_AI.png';
 		link.click();
 	}
-
-	function toggleThinkingMode() {
-		enableThinking.set(!get(enableThinking));
-	}
 </script>
-<h1 class="text-lg font-bold">Claude AI Integration</h1>
-<p>WebVM is integrated with Claude by Anthropic AI. You can prompt the AI to control the system.</p>
+<h1 class="text-lg font-bold">AI Integration</h1>
+<p>WebVM is integrated with AI via an OpenAI-compatible API. You can prompt the AI to control the system.</p>
 <p>You need to provide your API key. The key is only saved locally to your browser.</p>
 <div class="flex grow flex-col overflow-y-hidden gap-2">
 	<p class="flex flex-row gap-2">
 		<span class="mr-auto flex items-center">Conversation history</span>
 		<SmallButton buttonIcon="fa-solid fa-download" clickHandler={handleDownload} buttonTooltip="Save conversation as image"></SmallButton>
-		<SmallButton buttonIcon="fa-solid fa-brain" clickHandler={toggleThinkingMode} buttonTooltip="{$enableThinking ? "Disable" : "Enable"} thinking mode" bgColor={$enableThinking ? "bg-neutral-500" : "bg-neutral-700"}></SmallButton>
 		<SmallButton buttonIcon="fa-solid fa-trash-can" clickHandler={clearMessageHistory} buttonTooltip="Clear conversation history"></SmallButton>
 	</p>
 	<div class="flex grow overflow-y-scroll scrollbar" use:scrollMessage={$messageList}>
@@ -102,7 +97,7 @@
 	</div>
 </div>
 {#if $apiState == "KEY_REQUIRED"}
-	<textarea class="bg-neutral-700 p-2 rounded-md placeholder-gray-400 resize-none shrink-0" placeholder="Insert your Claude API Key" rows="1" on:keydown={handleKeyEnter} on:input={handleResize} id="ai-input"/>
+	<textarea class="bg-neutral-700 p-2 rounded-md placeholder-gray-400 resize-none shrink-0" placeholder="Insert your API Key" rows="1" on:keydown={handleKeyEnter} on:input={handleResize} id="ai-input"/>
 {:else if $aiActivity}
 	{#if stopRequested }
 		<PanelButton buttonIcon="fa-solid fa-hand" buttonText="Stopping...">
