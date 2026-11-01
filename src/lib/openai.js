@@ -189,6 +189,13 @@ async function sendMessages(handleTool)
 			aiActivity.set(false);
 			return;
 		}
+		var choice = response.choices && response.choices[0];
+		if(!choice || !choice.message)
+		{
+			addMessageInternal('error', 'Unexpected AI response: ' + JSON.stringify(response).slice(0, 200));
+			aiActivity.set(false);
+			return;
+		}
 		// Remove all the image payloads, we don't want to send them over and over again
 		for(var i=0;i<messages.length;i++)
 		{
@@ -199,7 +206,7 @@ async function sendMessages(handleTool)
 					delete c[0].content;
 			}
 		}
-		var content = response.choices[0].message;
+		var content = choice.message;
 		// Assistant text
 		if(content.content)
 			addMessageInternal(response.choices[0].message.role, content.content);
@@ -244,7 +251,7 @@ async function sendMessages(handleTool)
 			sendMessages(handleTool);
 			return;
 		}
-		if(!toolCalls.length && response.choices[0].finish_reason == "stop")
+		if(!toolCalls.length && choice.finish_reason == "stop")
 		{
 			tryPlausible("OpenAI Success");
 			aiActivity.set(false);
