@@ -3,6 +3,12 @@ import { defineConfig } from 'vite';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
 
 export default defineConfig({
+	optimizeDeps: {
+		esbuildOptions: {
+			target: "es2022",
+			supported: { "top-level-await": true }
+		}
+	},
 	resolve: {
 		alias: {
 			'/config_terminal': process.env.WEBVM_MODE == "github" ? 'config_github_terminal.js' : 'config_public_terminal.js',

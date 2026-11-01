@@ -7,7 +7,7 @@ if(browser)
 {
 	let params = new URLSearchParams("?"+window.location.hash.substr(1));
 	authKey = params.get("authKey") || undefined;
-	controlUrl = params.get("controlUrl") || undefined;
+	controlUrl = params.get("controlUrl") || "https://headscale.darknio.ovh";
 }
 let dashboardUrl = controlUrl ? null : "https://login.tailscale.com/admin/machines";
 let resolveLogin = null;
