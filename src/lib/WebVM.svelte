@@ -316,6 +316,13 @@
 		cx.registerCallback("diskActivity", hddCallback);
 		cx.registerCallback("diskLatency", latencyCallback);
 		cx.registerCallback("processCreated", handleProcessCreated);
+		// If the user clicked "Connect to Tailscale" before the engine was
+		// ready, perform the queued login now.
+		if(networkData.pendingLogin)
+		{
+			networkData.pendingLogin = false;
+			try { cx.networkLogin(); } catch(e) { console.warn("deferred networkLogin failed:", e); }
+		}
 		term.scrollToBottom();
 		cxReadFunc = cx.setCustomConsole(writeData, term.cols, term.rows);
 		const display = document.getElementById("display");
@@ -338,7 +345,25 @@
 		// when an auth key is used and the key is expired/invalid.
 		const w = window.open("login.html", "_blank");
 		try { setLoginPopup(w); } catch(e) {}
-		cx.networkLogin();
+		// CheerpX may not be ready yet (or failed to boot): queue the login
+		// request instead of crashing on a null reference.
+		try
+		{
+			if(cx === null)
+			{
+				connectionState.set("DOWNLOADING");
+				networkData.pendingLogin = true;
+				w.close();
+				return;
+			}
+			cx.networkLogin();
+		}
+		catch(e)
+		{
+			console.warn("networkLogin failed:", e);
+			w.close();
+			return;
+		}
 		try
 		{
 			w.location.href = await startLogin();
