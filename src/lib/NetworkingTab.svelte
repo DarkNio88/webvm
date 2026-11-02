@@ -11,6 +11,10 @@
 		dispatch('connect');
 	}
 
+	function copyToClipboard(text) {
+		window.navigator.clipboard.writeText(text);
+	}
+
 	let buttonData = null;
 	$: buttonData = updateButtonData($connectionState, handleConnect);
 </script>
@@ -22,3 +26,14 @@
 </PanelButton>
 <p>WebVM can connect to the Internet via Tailscale</p>
 <p>Using Tailscale is required since browser do not support TCP/UDP sockets (yet!)</p>
+{#if $connectionState == "LOGINREADY" && networkData.loginUrl}
+	<div class="bg-neutral-700 p-2 rounded-md">
+		<p class="text-sm mb-2">Open this link and approve the node on the Headscale server:</p>
+		<p class="break-all text-xs mb-2"><a class="underline" href={networkData.loginUrl} target="_blank" rel="noopener">{networkData.loginUrl}</a></p>
+		<code class="block bg-neutral-800 p-2 rounded text-xs break-all">headscale auth register --auth-id {networkData.loginUrl.split('/register/')[1] || ''} --user USERNAME</code>
+		<button class="mt-2 text-xs bg-neutral-600 hover:bg-neutral-500 p-1 rounded" on:click={() => copyToClipboard(networkData.loginUrl)}>Copy link</button>
+	</div>
+{/if}
+{#if networkData.stateHelp && $connectionState != "CONNECTED" && $connectionState != "LOGINREADY"}
+	<p class="text-xs">State: {$connectionState}</p>
+{/if}

@@ -65,6 +65,9 @@ function stateUpdateCb(state)
 		case 6 /*Running*/:
 		{
 			connectionState.set("CONNECTED");
+			// Node approved: registration page no longer needed
+			try { networkData.popupWindow?.close(); } catch(e) {}
+			networkData.popupWindow = null;
 			break;
 		}
 	}
