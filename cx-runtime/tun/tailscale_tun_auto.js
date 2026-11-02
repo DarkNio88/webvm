@@ -57,7 +57,9 @@ export async function autoConf({loginUrlCb, dnsIp, stateUpdateCb, netmapUpdateCb
 		netmapUpdateCb(map);
 		if (!settings.exitNodeIp) {
 			for (let p of map.peers) {
-				if (p.online && p.exitNode) {
+				// The wasm netmap JSON exposes the exit-node tag as
+				// exitNode (bool), mirroring tailscale's tailcfg.
+				if (p.online && (p.exitNode || p.exitNodeOption)) {
 					settings.exitNodeIp = p.addresses[0];
 					settings.dnsIp = settings.dnsIp || "8.8.8.8";
 					up(settings);
