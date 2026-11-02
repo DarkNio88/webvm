@@ -32,18 +32,19 @@ export async function init() {
 		let {instance} = await fetch(wasmUrl).then(x => x.arrayBuffer()).then(x => WebAssembly.instantiate(x,go.importObject));
 		go.run(instance);
 
-		const sessionStateStorage = {
+		const persistentStateStorage = {
 			setState(id, value) {
-			window.sessionStorage[`ipn-state-${id}`] = value
+				window.localStorage[`ipn-state-${id}`] = value
 			},
 			getState(id) {
-			return window.sessionStorage[`ipn-state-${id}`] || ""
+				return window.localStorage[`ipn-state-${id}`] || ""
 			},
 		}
 		ipn = newIPN({
-			// Persist IPN state in sessionStorage in development, so that we don't need
-			// to re-authorize every time we reload the page.
-			//stateStorage: sessionStateStorage,
+			// Persist IPN state (machine key, node key, profile) in
+			// localStorage so the node survives page reloads instead of
+			// re-registering a fresh one at every refresh.
+			stateStorage: persistentStateStorage,
 		});
 
 		const setupIpStack = () => {

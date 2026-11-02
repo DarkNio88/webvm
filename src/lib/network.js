@@ -46,7 +46,6 @@ function loginUrlCb(url)
 		return;
 	}
 	connectionState.set("LOGINREADY");
-	console.log("Tailscale: login/register URL received:", url);
 	resolveLogin(url);
 	// Push the registration URL to the login popup (if open) so it can redirect
 	try
@@ -61,8 +60,6 @@ function loginUrlCb(url)
 
 function stateUpdateCb(state)
 {
-	// Temporary trace: helps diagnose where the registration flow stalls
-	console.log("Tailscale: state callback =", state);
 	switch(state)
 	{
 		case 6 /*Running*/:

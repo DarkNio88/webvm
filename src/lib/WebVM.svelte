@@ -244,7 +244,12 @@
 	}
 	async function initCheerpX()
 	{
-		const CheerpX = await import('@leaningtech/cheerpx');
+		// Load CheerpX from our locally-hosted runtime at runtime
+		// (not bundled) so its internal relative imports resolve against
+		// /cx-runtime/ on the same origin. The dynamic URL is computed
+		// so the bundler cannot statically resolve it.
+		const cxUrl = window.location.origin + "/cx-runtime/cx.esm.js";
+		const CheerpX = await import(cxUrl);
 		var blockDevice = null;
 		switch(configObj.diskImageType)
 		{
