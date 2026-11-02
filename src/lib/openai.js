@@ -39,8 +39,6 @@ function addMessageInternal(role, content)
 //   assistant tool call: { type: "tool_use", id, name, input }
 //   user tool result:    { type: "tool_result", tool_use_id, content, is_error }
 // They are translated to OpenAI wire format in toOpenAIMessages().
-var tools = null;
-
 function getToolsDefinition()
 {
 	var dc = get(displayConfig);
@@ -180,9 +178,11 @@ async function sendMessages(handleTool)
 				...toOpenAIMessages()
 			],
 			model: 'glm-5.3-flash-free',
-			tools: tools,
 			tool_choice: "auto"
 		};
+		var toolsDef = getToolsDefinition();
+		if(toolsDef && toolsDef.length)
+			config.tools = toolsDef;
 		const response = await client.chat.completions.create(config);
 		if(stopFlag)
 		{
