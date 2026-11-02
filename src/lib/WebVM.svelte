@@ -340,20 +340,17 @@
 	onMount(initTerminal);
 	async function handleConnect()
 	{
-		// Always open the popup: with Headscale the registration URL
-		// (https://controlplane/register/<id>) arrives asynchronously even
-		// when an auth key is used and the key is expired/invalid.
+		// Popup shows "waiting for registration URL" then either:
+		//  a) we redirect it to the register URL (arrives async), or
+		//  b) it closes if the node gets approved without user interaction.
 		const w = window.open("login.html", "_blank");
 		try { setLoginPopup(w); } catch(e) {}
-		// CheerpX may not be ready yet (or failed to boot): queue the login
-		// request instead of crashing on a null reference.
 		try
 		{
 			if(cx === null)
 			{
 				connectionState.set("DOWNLOADING");
 				networkData.pendingLogin = true;
-				w.close();
 				return;
 			}
 			cx.networkLogin();
@@ -361,17 +358,18 @@
 		catch(e)
 		{
 			console.warn("networkLogin failed:", e);
-			w.close();
 			return;
 		}
+		const url = await startLogin();
 		try
 		{
-			w.location.href = await startLogin();
+			// Keep the same window: it first shows the waiting page, then the
+			// Headscale registration page. The user completes/approves there.
+			w.location.href = url;
 		}
 		catch(e)
 		{
-			w.close();
-			console.warn(e);
+			console.warn("popup redirect failed:", e);
 		}
 	}
 	async function handleReset()

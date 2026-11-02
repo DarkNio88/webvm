@@ -46,6 +46,7 @@ function loginUrlCb(url)
 		return;
 	}
 	connectionState.set("LOGINREADY");
+	console.log("Tailscale: login/register URL received:", url);
 	resolveLogin(url);
 	// Push the registration URL to the login popup (if open) so it can redirect
 	try
@@ -60,6 +61,8 @@ function loginUrlCb(url)
 
 function stateUpdateCb(state)
 {
+	// Temporary trace: helps diagnose where the registration flow stalls
+	console.log("Tailscale: state callback =", state);
 	switch(state)
 	{
 		case 6 /*Running*/:
@@ -96,6 +99,7 @@ export async function startLogin()
 	connectionState.set("LOGINSTARTING");
 	const url = await loginPromise;
 	networkData.loginUrl = url;
+	// Redirect the popup to the registration page (it shows the link + command)
 	return url;
 }
 
@@ -205,3 +209,23 @@ export const networkInterface = { authKey: authKey, controlUrl: controlUrl, logi
 export const networkData = { currentIp: null, connectionState: connectionState, exitNode: exitNode, loginUrl: null, dashboardUrl: dashboardUrl, popupWindow: null, pendingLogin: false }
 
 resetLoginPromise();
+
+// The popup polls the opener in case the URL raced with its own script:
+// when it asks {requestLoginUrl:true} and we already know the URL, answer it.
+if (browser && typeof window !== "undefined")
+{
+	window.addEventListener("message", (ev) =>
+	{
+		if (ev.data && ev.data.requestLoginUrl)
+		{
+			try
+			{
+				ev.source?.postMessage({loginUrl: networkData.loginUrl}, "*");
+			}
+			catch(e)
+			{
+				console.warn("login popup answer failed:", e);
+			}
+		}
+	});
+}
