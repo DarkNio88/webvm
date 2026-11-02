@@ -5,8 +5,51 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>Tailscale login</title>
+    <style>
+        body { font-family: system-ui, sans-serif; background: #222; color: #ddd; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 90vh; gap: 1rem; }
+        code { background: #333; padding: .4rem .7rem; border-radius: .4rem; font-size: .9rem; max-width: 92vw; overflow-wrap: anywhere; }
+        a { color: #7ab8ff; cursor: pointer; }
+        .hidden { display: none; }
+    </style>
 </head>
 <body>
-    Loading network code...
+    <p id="status">Waiting for the Headscale registration URL...</p>
+    <p id="linkRow" class="hidden">
+        <a id="link" target="_blank"></a>
+    </p>
+    <p id="cmdRow" class="hidden">
+        On the Headscale server run:<br>
+        <code id="cmd"></code>
+    </p>
+    <p id="closeRow" class="hidden">
+        Once approved, <a href="javascript:window.close()">close this window</a> and return to WebVM.
+    </p>
+    <script type="module">
+        // The opener writes the login/register URL onto this window.
+        // Headscale URLs look like: https://<host>/register/hskey-authreq-<id>
+        window.addEventListener("message", (ev) => {
+            const url = ev.data && ev.data.loginUrl;
+            if (!url) return;
+            document.getElementById("status").textContent =
+                "Open this link, then approve the node on the Headscale server:";
+            const link = document.getElementById("link");
+            link.href = url;
+            link.textContent = url;
+            document.getElementById("linkRow").classList.remove("hidden");
+            const id = url.split("/register/")[1];
+            if (id) {
+                document.getElementById("cmd").textContent =
+                    `headscale auth register --auth-id ${id} --user USERNAME`;
+                document.getElementById("cmdRow").classList.remove("hidden");
+            }
+            document.getElementById("closeRow").classList.remove("hidden");
+            // Auto-redirect to the registration page
+            setTimeout(() => { window.location.href = url; }, 1500);
+        });
+        // Ask the opener for an already-known URL (in case of race)
+        if (window.opener && !window.opener.closed) {
+            try { window.opener.postMessage({ requestLoginUrl: true }, "*"); } catch(e) {}
+        }
+    </script>
 </body>
 </html>

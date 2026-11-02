@@ -47,6 +47,15 @@ function loginUrlCb(url)
 	}
 	connectionState.set("LOGINREADY");
 	resolveLogin(url);
+	// Push the registration URL to the login popup (if open) so it can redirect
+	try
+	{
+		networkData.popupWindow?.postMessage({loginUrl: url}, "*");
+	}
+	catch(e)
+	{
+		console.warn("login popup push failed:", e);
+	}
 }
 
 function stateUpdateCb(state)
@@ -85,6 +94,11 @@ export async function startLogin()
 	const url = await loginPromise;
 	networkData.loginUrl = url;
 	return url;
+}
+
+export function setLoginPopup(w)
+{
+	networkData.popupWindow = w;
 }
 
 async function handleCopyIP(event)
@@ -185,6 +199,6 @@ export function updateButtonData(state, handleConnect) {
 
 export const networkInterface = { authKey: authKey, controlUrl: controlUrl, loginUrlCb: loginUrlCb, stateUpdateCb: stateUpdateCb, netmapUpdateCb: netmapUpdateCb };
 
-export const networkData = { currentIp: null, connectionState: connectionState, exitNode: exitNode, loginUrl: null, dashboardUrl: dashboardUrl }
+export const networkData = { currentIp: null, connectionState: connectionState, exitNode: exitNode, loginUrl: null, dashboardUrl: dashboardUrl, popupWindow: null }
 
 resetLoginPromise();

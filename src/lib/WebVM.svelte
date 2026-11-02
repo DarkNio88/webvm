@@ -5,7 +5,7 @@
 	import '$lib/global.css';
 	import '@xterm/xterm/css/xterm.css'
 	import '@fortawesome/fontawesome-free/css/all.min.css'
-	import { networkInterface, networkData, startLogin } from '$lib/network.js'
+	import { networkInterface, networkData, startLogin, setLoginPopup } from '$lib/network.js'
 	import { cpuActivity, diskActivity, cpuPercentage, diskLatency } from '$lib/activities.js'
 	import { introMessage, errorMessage, unexpectedErrorMessage } from '$lib/messages.js'
 	import { displayConfig, handleToolImpl } from '$lib/openai.js'
@@ -333,14 +333,11 @@
 	onMount(initTerminal);
 	async function handleConnect()
 	{
-		// NOTE: Logging in with an auth key produces no login URL
-		if(networkInterface.authKey)
-		{
-			networkData.connectionState.set("LOGINSTARTING");
-			cx.networkLogin();
-			return;
-		}
+		// Always open the popup: with Headscale the registration URL
+		// (https://controlplane/register/<id>) arrives asynchronously even
+		// when an auth key is used and the key is expired/invalid.
 		const w = window.open("login.html", "_blank");
+		try { setLoginPopup(w); } catch(e) {}
 		cx.networkLogin();
 		try
 		{
