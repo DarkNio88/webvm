@@ -349,7 +349,7 @@
 		{
 			if(cx === null)
 			{
-				connectionState.set("DOWNLOADING");
+				networkData.connectionState.set("DOWNLOADING");
 				networkData.pendingLogin = true;
 				return;
 			}
