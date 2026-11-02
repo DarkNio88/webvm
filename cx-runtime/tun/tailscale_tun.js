@@ -41,11 +41,21 @@ export async function init() {
 			return window.localStorage[`ipn-state-${id}`] || ""
 			},
 		}
-		ipn = newIPN(conf, {
-			// Persist IPN state (machine key, node key, profile) in
-			// localStorage so the node survives page reloads.
+		// Support both wasm variants: upstream arg shape (stateStorage in
+		// the single config object) and the CDN 2-arg shape.
+		const upstreamConf = Object.assign({}, conf, {
+			controlURL: conf.controlUrl,
+			controlUrl: conf.controlUrl,
 			stateStorage: persistentStateStorage,
 		});
+		try
+		{
+			ipn = newIPN(upstreamConf, {stateStorage: persistentStateStorage});
+		}
+		catch(e)
+		{
+			ipn = newIPN(upstreamConf);
+		}
 
 		const setupIpStack = () => {
 			ipn.tun.onmessage = function(ev) {
@@ -58,7 +68,15 @@ export async function init() {
 		setupIpStack();
 
 		ipn.run({
-			notifyState: (s) => listeners.onstateupdate(s),
+			notifyState: (s) => {
+				// Upstream wasm delivers the ipn State as a string
+				// ("NoState"/"NeedsLogin"/...). Translate to the legacy
+				// integer State so the LeaningTech client flow keeps
+				// working.
+				if (typeof s === "string") s = State[s] ?? s;
+			console.log("tun: state ->", s);
+				listeners.onstateupdate(s);
+			},
 			notifyNetMap: (s) => {
 				const netMap = JSON.parse(s);
 				listeners.onnetmap(netMap);
@@ -90,13 +108,18 @@ export async function init() {
 			if (ipn == null) {
 				await lazyRunIpn(conf);
 			}
-			ipn.up(conf);
+			else
+			{
+				// Upstream newIPN has no up(): the backend is already
+				// started by newIPN+run with the captured config.
+				try { ipn.up?.(conf); } catch(e) {}
+			}
 			localIp = null;
 			dnsIp = conf.dnsIp || "127.0.0.53";
 			ipMap = conf.ipMap
 		},
 		down: () => {
-			ipn.down();
+			try { ipn.down?.(); } catch(e) {}
 			IpStack.down();
 		},
 		login: () => ipn.login(),
