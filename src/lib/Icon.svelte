@@ -13,11 +13,14 @@
 	}
 </script>
 
-<div 
+<div
 	class="p-3 cursor-pointer text-center hover:bg-neutral-600 {$activity ? "text-amber-500 animate-pulse" : "hover:text-gray-100"}"
 	style="animation-duration: 0.5s"
+	role="button"
+	tabindex="0"
 	on:mouseenter={handleMouseover}
 	on:click={handleClick}
+	on:keydown={(e) => { if (e.key === "Enter" || e.key === " ") handleClick(); }}
 >
 	<i class='{icon} fa-xl'></i>
 </div>

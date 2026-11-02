@@ -79,13 +79,14 @@
 					on:click={() => handleClick(i)}
 				/>
 			{:else}
-				<div class="grow" on:mouseenter={handleMouseEnterPanel}></div>
+				<div class="grow" role="presentation" on:mouseenter={handleMouseEnterPanel}></div>
 			{/if}
 		{/each}
 	</div>
 	<div
 		class="relative flex flex-col gap-5 shrink-0 w-80 h-full z-10 p-2 bg-neutral-600 text-gray-100 opacity-95"
 		class:hidden={!activeInfo}
+		role="presentation"
 		on:mouseenter={handleMouseEnterPanel}
 		on:mouseleave={hideInfo}
 	>
