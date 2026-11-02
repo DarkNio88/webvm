@@ -27,7 +27,8 @@ export default defineConfig({
 				{ src: 'serviceWorker.js', dest: '' },
 				{ src: 'login.html', dest: '' },
 				{ src: 'assets/', dest: '' },
-				{ src: 'documents/', dest: '' }
+				{ src: 'documents/', dest: '' },
+				{ src: 'tun/*', dest: 'tun' }
 			]
 		})
 	]
