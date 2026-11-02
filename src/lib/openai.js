@@ -305,11 +305,11 @@ export function getMessageDetails(msg) {
 
 	if (isToolUse) {
 		let tool = msg.content[0].input;
-		if(tool.name == "bash" && tool.command) {
+		if(tool && tool.command && tool.name !== "computer") {
 			icon = "fa-terminal";
 			messageContent = `Run: ${tool.command}`;
 		}
-		else if (tool.action === "screenshot") {
+		else if (tool && tool.action === "screenshot") {
 			icon = "fa-desktop";
 			messageContent = "Screenshot";
 		} else if (tool.action === "mouse_move") {

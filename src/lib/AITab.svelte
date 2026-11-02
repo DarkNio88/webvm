@@ -4,6 +4,7 @@
 	import { get } from 'svelte/store';
 	import PanelButton from './PanelButton.svelte';
 	import SmallButton from './SmallButton.svelte';
+	import '@fortawesome/fontawesome-free/css/all.min.css';
 	import { aiActivity } from './activities.js';
 	import html2canvas from 'html2canvas-pro';
 	export let handleTool;
